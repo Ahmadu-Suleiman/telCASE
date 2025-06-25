@@ -1,43 +1,56 @@
-from flask import Flask, request
-from flask_sockets import Sockets
+# FastAPI-based WebSocket and Webhook server
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import JSONResponse
+import uvicorn
 import json
+import logging
 
-app = Flask(__name__)
-sockets = Sockets(app)
+# Set up basic logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# A set to store all connected WebSocket clients
+app = FastAPI()
+
+# Set to hold connected WebSocket clients
 clients = set()
 
-@sockets.route('/ws')
-def socket(ws):
-    """
-    Handles new WebSocket connections.
-    """
-    clients.add(ws)
-    while not ws.closed:
-        # Keep the connection alive
-        ws.receive()
-    clients.remove(ws)
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    clients.add(websocket)
+    logging.info(f"WebSocket connection established: {websocket.client}")
+    try:
+        while True:
+            await websocket.receive_text()  # optional: can also be skipped if unused
+    except WebSocketDisconnect:
+        logging.info(f"WebSocket connection closed: {websocket.client}")
+    except Exception as e:
+        logging.warning(f"WebSocket error: {e}")
+    finally:
+        clients.discard(websocket)
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    """
-    Receives data from the webhook.
-    """
-    if request.method == 'POST':
-        data = request.json
-        print(f"Webhook received: {data}")
+@app.post("/webhook")
+async def webhook(request: Request):
+    try:
+        data = await request.json()
+    except Exception as e:
+        logging.warning(f"Invalid JSON received: {e}")
+        return JSONResponse(status_code=400, content={"message": "Invalid JSON"})
 
-        # Broadcast the data to all connected WebSocket clients
-        for client in clients:
-            if not client.closed:
-                client.send(json.dumps(data))
+    logging.info(f"Webhook received: {data}")
 
-        return 'Webhook received!', 200
+    message = json.dumps(data)
+    to_remove = set()
+
+    for client in clients:
+        try:
+            await client.send_text(message)
+        except Exception as e:
+            logging.error(f"Failed to send to client {client.client}: {e}")
+            to_remove.add(client)
+
+    clients.difference_update(to_remove)
+    return {"message": "Webhook received!"}
 
 if __name__ == "__main__":
-    from gevent import pywsgi
-    from geventwebsocket.handler import WebSocketHandler
-    server = pywsgi.WSGIServer(('', 5000), app, handler_class=WebSocketHandler)
-    print("Server started on port 5000")
-    server.serve_forever()
+    logging.info("Server starting on http://localhost:5000")
+    uvicorn.run("webhook_server:app", host="0.0.0.0", port=5000, reload=True)
