@@ -52,5 +52,5 @@ async def webhook(request: Request):
     return {"message": "Webhook received!"}
 
 if __name__ == "__main__":
-    logging.info("Server starting on http://localhost:5000")
-    uvicorn.run("webhook_server:app", host="0.0.0.0", port=5000, reload=True)
+    logging.info("Server starting on http://localhost:8000")
+    uvicorn.run("webhook_server:app", host="0.0.0.0", port=8000, reload=True)
