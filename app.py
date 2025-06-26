@@ -20,13 +20,10 @@ if os.path.exists(STATE_FILE):
             data = json.load(f)
 
         with placeholder.container():
-            st.subheader("📥 Last Webhook Payload")
-            st.json(data)
-
             try:
                 if 'payload' in data and 'results' in data['payload']:
                     parsed = json.loads(data['payload']['results'][0]['result'])
-                    st.success("🎯 Parsed Insight")
+                    st.success("Parsed Insight")
                     st.json(parsed)
             except Exception as e:
                 st.warning(f"Could not parse nested result: {e}")
