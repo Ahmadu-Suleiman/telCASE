@@ -13,7 +13,7 @@ st.set_page_config(
         'About': 'https://linktr.ee/case.be.heard'
     }
 )
-st.image("case logo.svg", width=50)
+st.image("case logo.svg", width=100)
 st.title('telCASE')
 st.subheader('Voice AI–Powered Case Intake for the CASE Platform', divider='orange')
 st.markdown("""
@@ -26,12 +26,12 @@ st.subheader("Below is a live example of a case created from a telCASE conversat
 placeholder = st.empty()
 
 # File path from the webhook server
-STATE_FILE = "case_data.json"
+case_file = "case_data.json"
 
 # Try to read the file if it exists
-if os.path.exists(STATE_FILE):
+if os.path.exists(case_file):
     try:
-        with open(STATE_FILE, "r") as f:
+        with open(case_file, "r") as f:
             data = json.load(f)
 
         with placeholder.container():
