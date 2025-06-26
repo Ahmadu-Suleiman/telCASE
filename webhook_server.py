@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 app = FastAPI()
 
 # Path to temporary file Streamlit will read from
-STATE_FILE = "webhook_data.json"
+STATE_FILE = "case_data.json"
 
 @app.post("/webhook")
 async def webhook(request: Request):

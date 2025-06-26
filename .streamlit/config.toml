@@ -1,0 +1,5 @@
+[theme]
+primaryColor = "#F4B360" # Color for interactive elements like buttons, sliders
+secondaryBackgroundColor = "#FFDCAF" # Background color for sidebar and most widgets
+textColor = "#262730" # Color for body text and links
+font = "sans serif" # "sans serif", "serif", or "monospace"
