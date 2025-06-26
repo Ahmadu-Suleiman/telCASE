@@ -1,32 +1,17 @@
-# FastAPI-based WebSocket and Webhook server
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import uvicorn
 import json
 import logging
+import os
 
 # Set up basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = FastAPI()
 
-# Set to hold connected WebSocket clients
-clients = set()
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    clients.add(websocket)
-    logging.info(f"WebSocket connection established: {websocket.client}")
-    try:
-        while True:
-            await websocket.receive_text()  # optional: can also be skipped if unused
-    except WebSocketDisconnect:
-        logging.info(f"WebSocket connection closed: {websocket.client}")
-    except Exception as e:
-        logging.warning(f"WebSocket error: {e}")
-    finally:
-        clients.discard(websocket)
+# Path to temporary file Streamlit will read from
+STATE_FILE = "webhook_data.json"
 
 @app.post("/webhook")
 async def webhook(request: Request):
@@ -38,17 +23,13 @@ async def webhook(request: Request):
 
     logging.info(f"Webhook received: {data}")
 
-    message = json.dumps(data)
-    to_remove = set()
+    # Save the latest data to a file for Streamlit to read
+    try:
+        with open(STATE_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        logging.error(f"Failed to write data to file: {e}")
 
-    for client in clients:
-        try:
-            await client.send_text(message)
-        except Exception as e:
-            logging.error(f"Failed to send to client {client.client}: {e}")
-            to_remove.add(client)
-
-    clients.difference_update(to_remove)
     return {"message": "Webhook received!"}
 
 if __name__ == "__main__":

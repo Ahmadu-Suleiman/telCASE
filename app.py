@@ -1,72 +1,41 @@
 import streamlit as st
-import asyncio
-import websockets
 import json
-import threading
-from streamlit.runtime.scriptrunner import add_script_run_ctx
+import time
+import os
 
-if 'websocket_data' not in st.session_state:
-    st.session_state.websocket_data = None
-if 'websocket_thread' not in st.session_state:
-    st.session_state.websocket_thread = None
-if 'stop_websocket' not in st.session_state:
-    st.session_state.stop_websocket = threading.Event()
+st.set_page_config(page_title="Live Webhook Feed", layout="wide")
 
-def websocket_listener():
-    uri = "ws://localhost:8000/ws"
+st.title("📡 Live Webhook Feed (Polling)")
+st.caption("This app refreshes every 5 seconds and reads data from a shared file written by the webhook server.")
 
-    async def listen():
-        st.session_state.stop_websocket.clear()
-        try:
-            async with websockets.connect(uri) as websocket:
-                while not st.session_state.stop_websocket.is_set():
-                    try:
-                        message = await asyncio.wait_for(websocket.recv(), timeout=1.0)
-                        st.session_state.websocket_data = json.loads(message)
-                        st.rerun()
-                    except asyncio.TimeoutError:
-                        continue
-                    except websockets.exceptions.ConnectionClosed:
-                        print("WebSocket closed.")
-                        break
-        except Exception as e:
-            print(f"WebSocket failed: {e}")
+placeholder = st.empty()
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(listen())
+# File path from the webhook server
+STATE_FILE = "webhook_data.json"
 
-@st.fragment
-def display_data():
-    st.header("Live Webhook Data")
+# Try to read the file if it exists
+if os.path.exists(STATE_FILE):
+    try:
+        with open(STATE_FILE, "r") as f:
+            data = json.load(f)
 
-    if st.session_state.websocket_data:
-        st.json(st.session_state.websocket_data)
-    else:
-        st.info("Waiting for data from the webhook...")
+        with placeholder.container():
+            st.subheader("📥 Last Webhook Payload")
+            st.json(data)
 
-    with st.expander("Debug Log"):
-        st.text(json.dumps(st.session_state.websocket_data, indent=2) if st.session_state.websocket_data else "No data yet.")
-
-st.title("Real-Time Webhook Dashboard")
-
-# Check if the listener thread is running
-is_thread_running = (
-    st.session_state.websocket_thread is not None and
-    st.session_state.websocket_thread.is_alive()
-)
-
-if not is_thread_running:
-    if st.button("Connect to Webhook Stream"):
-        st.session_state.stop_websocket.clear()
-        thread = threading.Thread(target=websocket_listener)
-        add_script_run_ctx(thread)
-        st.session_state.websocket_thread = thread
-        thread.start()
-        st.success("Connected! Waiting for webhook events.")
-        st.rerun()
+            try:
+                if 'payload' in data and 'results' in data['payload']:
+                    parsed = json.loads(data['payload']['results'][0]['result'])
+                    st.success("🎯 Parsed Insight")
+                    st.json(parsed)
+            except Exception as e:
+                st.warning(f"Could not parse nested result: {e}")
+    except Exception as e:
+        st.error(f"Error reading data file: {e}")
 else:
-    st.success("Status: Connected to webhook stream.")
+    st.info("No webhook data file found yet.")
 
-# Display the data fragment
-display_data()
+# Simulate refresh loop
+st.write("Refreshing every 5 seconds...")
+time.sleep(5)
+st.rerun()
